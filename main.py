@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from db import get_game_by_id, get_all_sale_product
+from database.db import get_game_by_id, get_all_sale_product, get_prices_by_product, start_api_db
 
 app = FastAPI()
 
@@ -20,3 +20,13 @@ async def one_game_for_game_id(game_id: str):
 async def all_sale_game():
 
     return get_all_sale_product()
+
+
+@app.get("/game_price/{product_id}")
+async def game_price(product_id: str):
+
+    return get_prices_by_product(product_id)
+
+
+if __name__ == '__main__':
+    start_api_db()
