@@ -1,39 +1,78 @@
 import asyncio
 
-async def calculate_price(country_code, original_price, discounted_price):
-    amount_usd = 20
-    amount_try = 20
+from database.db import get_exchange, update_formulas, get_formulas
 
-    usd_in_rub = amount_usd * usd_to_rub
-    try_in_rub = amount_try * try_to_rub
-    ngn_in_rub = ngn_to_rub * amount_usd
-    ars_in_rub = ars_to_rub * amount_usd
-    uah_in_rub = uah_to_rub * amount_usd
-    egp_in_rub = egp_to_rub * amount_usd
 
-    print(f"{amount_usd} USD = {usd_in_rub:.2f} RUB")
-    print(f"{amount_try} TRY = {try_in_rub:.2f} RUB")
-    print(f"{amount_try} ngn = {ngn_in_rub:.2f} RUB")
-    print(f"{amount_try} ars = {ars_in_rub:.2f} RUB")
-    print(f"{amount_try} uah = {uah_in_rub:.2f} RUB")
-    print(f"{amount_try} egp = {egp_in_rub:.2f} RUB")
+def calculate_price(country_code, original_price, discounted_price):
+    formula = get_formulas().get(country_code)
+    exchange_rate = get_exchange()
+
     if "IN" == country_code:
-        return (original_price + discounted_price) / 2
+        original_price = original_price * exchange_rate.get(country_code)
+        discounted_price = discounted_price * exchange_rate.get(country_code)
+
+        if discounted_price > 2999:
+            original_price += 200
+            discounted_price += 200
+
+        original_price = round(eval(str(original_price) + formula), -1)
+        discounted_price = round(eval(str(discounted_price) + formula), -1)
+        return original_price, discounted_price
 
     elif "NG" == country_code:
-        return (original_price + discounted_price) / 2
+        original_price = original_price * exchange_rate.get(country_code)
+        discounted_price = discounted_price * exchange_rate.get(country_code)
+
+        if discounted_price > 2999:
+            original_price += 200
+            discounted_price += 200
+
+        original_price = round(eval(str(original_price) + formula), -1)
+        discounted_price = round(eval(str(discounted_price) + formula), -1)
+        return original_price, discounted_price
 
     elif "US" == country_code:
-        return (original_price + discounted_price) / 2
+        original_price = original_price * exchange_rate.get(country_code)
+        discounted_price = discounted_price * exchange_rate.get(country_code)
+        original_price = round(eval(str(original_price) + formula), -1)
+        discounted_price = round(eval(str(discounted_price) + formula), -1)
+        return original_price, discounted_price
 
     elif "AR" == country_code:
-        return (original_price + discounted_price) / 2
+        original_price = original_price * exchange_rate.get(country_code)
+        discounted_price = discounted_price * exchange_rate.get(country_code)
+
+        if discounted_price > 2999:
+            original_price += 200
+            discounted_price += 200
+
+        original_price = round(eval(str(original_price) + formula), -1)
+        discounted_price = round(eval(str(discounted_price) + formula), -1)
+        return original_price, discounted_price
 
     elif "TR" == country_code:
-        return (original_price + discounted_price) / 2
+        original_price = original_price * exchange_rate.get(country_code)
+        discounted_price = discounted_price * exchange_rate.get(country_code)
+
+        if discounted_price > 2999:
+            original_price += 200
+            discounted_price += 200
+
+        original_price = round(eval(str(original_price) + formula), -1)
+        discounted_price = round(eval(str(discounted_price) + formula), -1)
+        return original_price, discounted_price
 
     elif "UA" == country_code:
-        return (original_price + discounted_price) / 2
+        original_price = original_price * exchange_rate.get(country_code)
+        discounted_price = discounted_price * exchange_rate.get(country_code)
+
+        if discounted_price > 2999:
+            original_price += 200
+            discounted_price += 200
+
+        original_price = round(eval(str(original_price) + formula), -1)
+        discounted_price = round(eval(str(discounted_price) + formula), -1)
+        return original_price, discounted_price
 
     else:
         return f"error: Нет такой страны - {country_code}"
