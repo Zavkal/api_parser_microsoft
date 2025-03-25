@@ -17,12 +17,12 @@ def get_new_exchange():
     if response.status_code == 200:
         data = response.json()
         date_exchange = data["date"]
-        usd_to_rub = 1 / data['rates'].get('USD', 'Нет данных')  # Доллар
-        try_to_rub = 1 / data['rates'].get('TRY', 'Нет данных')  # Турция
-        ngn_to_rub = 1 / data['rates'].get('NGN', 'Нет данных')  # Наира Нигерия
-        ars_to_rub = 1 / data['rates'].get('ARS', 'Нет данных')  # Песо Аргентины
-        uah_to_rub = 1 / data['rates'].get('UAH', 'Нет данных')  # Гривна Укр
-        egp_to_rub = 1 / data['rates'].get('EGP', 'Нет данных')  # Фунт Египет
+        usd_to_rub = 1 / data['rates'].get('USD', -1)  # Доллар
+        try_to_rub = 1 / data['rates'].get('TRY', -1)  # Турция
+        ngn_to_rub = 1 / data['rates'].get('NGN', -1)  # Наира Нигерия
+        ars_to_rub = 1 / data['rates'].get('ARS', -1)  # Песо Аргентины
+        uah_to_rub = 1 / data['rates'].get('UAH', -1)  # Гривна Укр
+        egp_to_rub = 1 / data['rates'].get('EGP', -1)  # Фунт Египет
 
         update_exchange(date_exchange=date_exchange,
                         usd_to_rub=usd_to_rub,
@@ -38,3 +38,29 @@ def get_new_exchange():
 
 if __name__ == '__main__':
     get_new_exchange()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

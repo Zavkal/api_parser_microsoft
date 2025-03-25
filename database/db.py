@@ -2,7 +2,7 @@ import os
 import sqlite3
 from datetime import datetime, timezone, timedelta
 
-from config import regions_id, price_tables
+from config import regions_id, price_tables, price_groups
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -77,14 +77,22 @@ def get_game_by_id(product_id: str):
     return game_data
 
 
-def get_all_sale_product(days=7):
-    current_date = datetime.now(timezone.utc)
-    future_date = current_date + timedelta(days=days)
+def get_all_sale_product():
+    # Запрос для выборки данных
+    cur.execute('SELECT product_id FROM products WHERE sale_product == 1;')
 
+    result = []
+    for url in cur.fetchall():
+        result.append(url[0])
+
+    return result
+
+
+def get_all_game_by_price(price: float = 1500):
     # Запрос для выборки данных
     query = 'SELECT product_id FROM products WHERE end_date_sale BETWEEN ? AND ?;'
     # Выполняем запрос с подстановкой дат
-    cur.execute(query, (current_date.strftime("%Y-%m-%d"), future_date.strftime("%Y-%m-%d")))
+    cur.execute(query, (0, price))
 
     result = []
     for product_id in cur.fetchall():
@@ -109,17 +117,17 @@ def get_price_by_product(product_id):
 
 def get_prices_by_product(product_id):
     prices = {}
-    for country, table in regions_id.items():
+    for table in price_tables:
         cur.execute(f"SELECT * FROM '{table}' WHERE product_id = ?", (product_id,))
         result = cur.fetchall()
 
         if result:
             columns = [desc[0] for desc in cur.description]
             country_prices = [dict(zip(columns, row)) for row in result]
-            prices[country] = country_prices
+            prices[table] = country_prices
 
         else:
-            prices[country] = []  # Если нет данных, возвращаем пустой список
+            prices[table] = []  # Если нет данных, возвращаем пустой список
 
     return prices
 
@@ -178,6 +186,114 @@ def get_minimal_price_by_product(product_id):
     return prices
 
 
-
 def get_game_up_to(price: int):
-    pass
+    result = []
+    for region in price_tables:
+        query = f'SELECT product_id, ru_price FROM "{region}" WHERE ru_price <= ?'
+        cur.execute(query, (price,))
+
+        for product_id, ru_price in cur.fetchall():
+            # Игнорируем продукт, если его цена равна нулю
+            if ru_price == 0:
+                continue
+
+            # Добавляем product_id в список, если цена подходит
+            if product_id not in result:
+                result.append(product_id)
+
+    return result
+
+
+def get_game_price(product_id: str):
+    result = {}
+
+    for group, regions in price_groups.items():
+        min_price = float("inf")
+        min_country = None
+        discounted_percentage = None  # Инициализация
+
+        for region in regions:
+            query = f'SELECT ru_price, discounted_percentage FROM "{region}" WHERE product_id = ?'
+            cur.execute(query, (product_id,))
+
+            # Извлекаем все строки и фильтруем только те, где цена больше нуля
+            rows = cur.fetchall()
+            valid_rows = [(row[0], row[1]) for row in rows if row[0] > 0]
+
+            if valid_rows:
+                # Находим минимальную цену и соответствующий процент скидки
+                local_min, local_discounted_percentage = min(valid_rows, key=lambda x: x[0])
+
+                if local_min < min_price:
+                    min_price = local_min
+                    min_country = region
+                    discounted_percentage = local_discounted_percentage
+
+        # Если так и не нашли цену, или нашли < 0, ставим -1
+        result[group] = {
+            "country": min_country if min_country else None,
+            "price": min_price if min_price != float("inf") and min_price > 0 else -1,
+            "discounted_percentage": round(discounted_percentage, 0) if discounted_percentage is not None else None
+        }
+
+    return result
+
+
+def get_product_ids_with_dlc():
+    query = '''SELECT product_id FROM products WHERE dlc IS NOT NULL AND dlc <> '';'''
+    cur.execute(query)
+    return [row[0] for row in cur.fetchall()]
+
+
+def get_product_ids_with_audio_ru():
+    query = '''SELECT product_id FROM products WHERE audio_ru == 1 ;'''
+    cur.execute(query)
+    return [row[0] for row in cur.fetchall()]
+
+
+def get_product_ids_with_pc():
+    query = '''SELECT product_id FROM products WHERE device LIKE '%PC%';'''
+    cur.execute(query)
+    return [row[0] for row in cur.fetchall()]
+
+
+def get_games_by_recent_releases(days: int):
+    # Рассчитываем дату, которая будет являться ограничением для поиска
+    date_limit = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d')
+    # Рассчитываем дату завтрашнего дня для ограничения
+    tomorrow = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
+
+    # SQL-запрос для поиска игр, чья дата релиза позже или равна рассчитанному лимиту, но не позже завтрашнего дня
+    # и сортировка по дате релиза в порядке убывания
+    query = '''SELECT product_id
+               FROM products 
+               WHERE release_date >= ? AND release_date < ?
+               ORDER BY release_date DESC;'''
+    cur.execute(query, (date_limit, tomorrow))
+
+    # Возвращаем результаты в виде списка игр
+    return [row[0] for row in cur.fetchall()]
+
+
+def get_products_by_discount(min_percentage: float, max_percentage: float):
+    products_with_discount = []
+
+    # Проходим по всем группам и регионам
+    for group, regions in price_groups.items():
+        for region in regions:
+            query = f'SELECT product_id, discounted_percentage FROM "{region}"'
+            cur.execute(query)
+
+            # Извлекаем все строки
+            rows = cur.fetchall()
+
+            for product_id, discounted_percentage in rows:
+                if discounted_percentage is not None and min_percentage <= discounted_percentage <= max_percentage:
+                    products_with_discount.append(product_id)
+
+    return products_with_discount
+
+
+
+
+

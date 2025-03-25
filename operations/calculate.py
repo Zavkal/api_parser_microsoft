@@ -4,6 +4,7 @@ from database.db import get_exchange, update_formulas, get_formulas
 
 
 def calculate_price(country_code, original_price, discounted_price):
+    country_code = country_code[-2:]
     formula = get_formulas().get(country_code)
     exchange_rate = get_exchange()
 
