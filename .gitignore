@@ -131,3 +131,5 @@ dmypy.json
 
 # IDEA
 .idea/
+
+db.db

@@ -1,9 +1,9 @@
-import asyncio
-
-from database.db import get_exchange, update_formulas, get_formulas
+from database.db import get_exchange, get_formulas
 
 
-def calculate_price(country_code, original_price, discounted_price):
+def calculate_price(
+    country_code: str, original_price: float, discounted_price: float
+) -> tuple[float, float]:
     country_code = country_code[-2:]
     formula = get_formulas().get(country_code)
     exchange_rate = get_exchange()
@@ -74,7 +74,3 @@ def calculate_price(country_code, original_price, discounted_price):
         original_price = round(eval(str(original_price) + formula), -1)
         discounted_price = round(eval(str(discounted_price) + formula), -1)
         return original_price, discounted_price
-
-    else:
-        return f"error: Нет такой страны - {country_code}"
-
