@@ -12,6 +12,11 @@ class ProductListResponse(BaseModel, Generic[T]):
     results: List[T]
 
 
+class ProductRandomListResponse(BaseModel, Generic[T]):
+    count: int
+    results: List[T]
+
+
 class DataAdapter:
     async def enrich_response(
         self,
@@ -32,5 +37,16 @@ class DataAdapter:
             previous=f"{base_url}?limit={limit}&offset={prev_offset}"
             if prev_offset is not None
             else None,
+            results=response,
+        )
+
+    async def enrich_response_without_offset(
+        self,
+        response: List[T],
+        count: int,
+    ) -> ProductRandomListResponse[T]:
+
+        return ProductRandomListResponse[T](
+            count=count,
             results=response,
         )

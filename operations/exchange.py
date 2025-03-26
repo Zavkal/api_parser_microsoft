@@ -1,13 +1,19 @@
 import requests
 
 from database.db import update_exchange
+from dotenv import load_dotenv
+import os
+
+
+load_dotenv()
+API_EXCHANGE = os.getenv('API_EXCHANGE')
 
 
 def get_new_exchange() -> None:
     url = "https://api.apilayer.com/exchangerates_data/latest?symbols=USD,TRY,NGN,ARS,UAH,EGP&base=RUB"
 
     payload = {}
-    headers = {"apikey": "JY1QPAEUMi6k65jnMJt902P3FheHW11A"}
+    headers = {"apikey": API_EXCHANGE}
     response = requests.request("GET", url, headers=headers, data=payload)
     response.raise_for_status()
     if response.status_code == 200:

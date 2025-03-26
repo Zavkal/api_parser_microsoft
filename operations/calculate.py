@@ -1,9 +1,8 @@
-from database.db import get_exchange, get_formulas
-
 
 def calculate_price(
     country_code: str, original_price: float, discounted_price: float
 ) -> tuple[float, float]:
+    from database.db import get_exchange, get_formulas
     country_code = country_code[-2:]
     formula = get_formulas().get(country_code)
     exchange_rate = get_exchange()

@@ -1,23 +1,19 @@
-import random
-
 from fastapi import FastAPI, HTTPException, Depends
 from starlette.middleware.cors import CORSMiddleware
 
-from adapters.product_list import DataAdapter, ProductListResponse
-from database.db import get_game_with_prices_by_id, get_games_with_limit
+from adapters.product_list import DataAdapter, ProductListResponse, ProductRandomListResponse
 from database.db import (
-    get_game_by_id,
-    get_all_sale_product,
+    get_game_with_prices_by_id,
+    get_games_with_limit,
+    get_game_up_to_with_limit,
+    get_sale_games_with_limit,
     get_prices_by_product,
-    get_game_up_to,
-    get_game_price,
     get_product_ids_with_dlc,
     get_product_ids_with_audio_ru,
     get_product_ids_with_pc,
     get_games_by_recent_releases,
     get_products_by_discount,
 )
-from operations.calculate import calculate_price
 from schemas.product import ProductResponse
 
 app = FastAPI(root_path="/api-sale")
@@ -54,32 +50,10 @@ async def game_by_product_id(product_id: str) -> ProductResponse:
     return game
 
 
-@app.get("/game_price/{product_id}")
+@app.get("/game_price/{product_id}",
+         summary="Я вообще хз, надо оно нам или нет.")
 async def game_price(product_id: str):
-    all_price = get_prices_by_product(product_id)
-    new_price = {}
-
-    for country_code, price_data_list in all_price.items():
-        if not price_data_list:
-            new_price[country_code] = {}
-            continue
-
-        for price_data in price_data_list:
-            orig_price, disc_price = calculate_price(
-                original_price=price_data.get("original_price"),
-                discounted_price=price_data.get("discounted_price"),
-                country_code=country_code,
-            )
-
-            new_price[country_code] = {
-                "original_price": orig_price,
-                "discounted_price": disc_price,
-                "discounted_percentage": round(
-                    price_data.get("discounted_percentage"), 1
-                ),
-            }
-
-    return new_price
+    return get_prices_by_product(product_id)
 
 
 @app.get(
@@ -89,11 +63,12 @@ async def game_price(product_id: str):
     summary="Список игр с пагинацией",
 )
 async def get_games(
-    offset: int = 0,
-    limit: int = 10,
-    data_adapter: DataAdapter = Depends(),
+        offset: int = 0,
+        limit: int = 10,
+        data_adapter: DataAdapter = Depends(),
 ) -> ProductListResponse[ProductResponse]:
     count, games = get_games_with_limit(limit=limit, offset=offset)
+
     return await data_adapter.enrich_response(
         response=games,
         count=count,
@@ -103,170 +78,127 @@ async def get_games(
     )
 
 
-@app.get("/games/sales/")
-async def get_sale_games(offset: int = 0, limit: int = 10):
-    product_ids = get_all_sale_product()
-    count = len(product_ids)
-    paginated_ids = product_ids[offset : offset + limit]
+@app.get(
+    "/games/sales/",
+    response_model_exclude_none=False,
+    response_model_exclude_unset=False,
+    summary="Игры распродажи с пагинацией",
+)
+async def get_sale_games(offset: int = 0,
+                         limit: int = 10,
+                         data_adapter: DataAdapter = Depends()
+                         ) -> ProductListResponse[ProductResponse]:
+    count, games = get_sale_games_with_limit(limit=limit, offset=offset)
 
-    games = []
-    for product_id in paginated_ids:
-        game_data = get_game_by_id(product_id)
-        if game_data:
-            game_data["price"] = get_game_price(product_id)
-            games.append(game_data)
-
-    next_offset = offset + limit if offset + limit < count else None
-    prev_offset = offset - limit if offset > 0 else None
-
-    return {
-        "count": count,
-        "next": f"/games/sales/?limit={limit}&offset={next_offset}"
-        if next_offset is not None
-        else None,
-        "previous": f"/games/sales/?limit={limit}&offset={prev_offset}"
-        if prev_offset is not None
-        else None,
-        "results": games,
-    }
+    return await data_adapter.enrich_response(
+        response=games,
+        count=count,
+        limit=limit,
+        offset=offset,
+        base_url="/games/sales/",
+    )
 
 
-@app.get("/games/up_to")
-async def games_up_to(price: int = 500, limit: int = 10):
-    all_game_up_to = get_game_up_to(price)
-    count = len(all_game_up_to)
-
-    # Перемешиваем список случайным образом
-    random.shuffle(all_game_up_to)
-
-    # Ограничиваем список количеством товаров, которое указано в limit
-    games = []
-    for product_id in all_game_up_to[:limit]:  # Ограничиваем по limit
-        game_data = get_game_by_id(product_id)
-        if game_data:
-            game_data["price"] = get_game_price(product_id)
-            games.append(game_data)
-
-    return {"count": count, "results": games}
+@app.get(
+    "/games/up_to",
+    response_model_exclude_none=False,
+    response_model_exclude_unset=False,
+    summary="Игры до определенной цены (РАНДОМ)",
+)
+async def games_up_to(price: int = 500,
+                      limit: int = 10,
+                      data_adapter: DataAdapter = Depends()
+                      ) -> ProductRandomListResponse[ProductResponse]:
+    count, games = get_game_up_to_with_limit(limit=limit, price=price)
+    return await data_adapter.enrich_response_without_offset(
+        response=games,
+        count=count,
+    )
 
 
-@app.get("/games/dlc")
-async def games_dlc(limit: int = 10):
-    all_game = get_product_ids_with_dlc()
-    count = len(all_game)
+@app.get(
+    "/games/dlc",
+    response_model_exclude_none=False,
+    response_model_exclude_unset=False,
+    summary="DLC игр и доп услуги (РАНДОМ)")
+async def games_dlc(limit: int = 10,
+                    data_adapter: DataAdapter = Depends()
+                    ) -> ProductRandomListResponse[ProductResponse]:
+    count, games = get_product_ids_with_dlc(limit)
 
-    # Перемешиваем список случайным образом
-    random.shuffle(all_game)
-
-    # Ограничиваем список количеством товаров, которое указано в limit
-    games = []
-    for product_id in all_game[:limit]:  # Ограничиваем по limit
-        game_data = get_game_by_id(product_id)
-        if game_data:
-            game_data["price"] = get_game_price(product_id)
-            games.append(game_data)
-
-    return {"count": count, "results": games}
+    return await data_adapter.enrich_response_without_offset(
+        count=count,
+        response=games)
 
 
-@app.get("/games/audio_ru")
-async def games_audio_ru(limit: int = 10):
-    all_game = get_product_ids_with_audio_ru()
-    count = len(all_game)
+@app.get("/games/audio_ru",
+         response_model_exclude_none=False,
+         response_model_exclude_unset=False,
+         summary="Игры с русской озвучкой (РАНДОМ)")
+async def games_audio_ru(limit: int = 10,
+                         data_adapter: DataAdapter = Depends()
+                         ) -> ProductRandomListResponse[ProductResponse]:
+    count, games = get_product_ids_with_audio_ru(limit)
 
-    # Перемешиваем список случайным образом
-    random.shuffle(all_game)
-
-    # Ограничиваем список количеством товаров, которое указано в limit
-    games = []
-    for product_id in all_game[:limit]:  # Ограничиваем по limit
-        game_data = get_game_by_id(product_id)
-        if game_data:
-            game_data["price"] = get_game_price(product_id)
-            games.append(game_data)
-
-    return {"count": count, "results": games}
+    return await data_adapter.enrich_response_without_offset(
+        count=count,
+        response=games
+    )
 
 
-@app.get("/games/device_pc")
-async def games_device_pc(limit: int = 10):
-    all_game = get_product_ids_with_pc()
-    count = len(all_game)
+@app.get("/games/device_pc",
+         response_model_exclude_none=False,
+         response_model_exclude_unset=False,
+         summary="Игры на компьютер (РАНДОМ)")
+async def games_device_pc(limit: int = 10,
+                          data_adapter: DataAdapter = Depends()
+                          ) -> ProductRandomListResponse[ProductResponse]:
+    count, games = get_product_ids_with_pc(limit)
 
-    # Перемешиваем список случайным образом
-    random.shuffle(all_game)
-
-    # Ограничиваем список количеством товаров, которое указано в limit
-    games = []
-    for product_id in all_game[:limit]:  # Ограничиваем по limit
-        game_data = get_game_by_id(product_id)
-        if game_data:
-            game_data["price"] = get_game_price(product_id)
-            games.append(game_data)
-
-    return {"count": count, "results": games}
+    return await data_adapter.enrich_response_without_offset(
+        count=count,
+        response=games
+    )
 
 
-@app.get("/games/recent_releases")
-async def games_recent_releases(days: int = 15, offset: int = 0, limit: int = 10):
-    product_ids = get_games_by_recent_releases(days)
-    count = len(product_ids)
-    paginated_ids = product_ids[offset : offset + limit]
+@app.get("/games/recent_releases",
+         response_model_exclude_none=False,
+         response_model_exclude_unset=False,
+         summary="Последние релизы (От свежих к старым)")
+async def games_recent_releases(days: int = 15,
+                                offset: int = 0,
+                                limit: int = 10,
+                                data_adapter: DataAdapter = Depends()
+                                ) -> ProductListResponse[ProductResponse]:
+    count, games = get_games_by_recent_releases(days=days,
+                                                offset=offset,
+                                                limit=limit)
 
-    games = []
-    for product_id in paginated_ids:
-        game_data = get_game_by_id(product_id)
-        if game_data:
-            game_data["price"] = get_game_price(product_id)
-            games.append(game_data)
-
-    next_offset = offset + limit if offset + limit < count else None
-    prev_offset = offset - limit if offset > 0 else None
-
-    return {
-        "count": count,
-        "next": f"/games/recent_releases/?limit={limit}&offset={next_offset}"
-        if next_offset is not None
-        else None,
-        "previous": f"/games/recent_releases/?limit={limit}&offset={prev_offset}"
-        if prev_offset is not None
-        else None,
-        "results": games,
-    }
+    return await data_adapter.enrich_response(
+        count=count,
+        response=games,
+        limit=limit,
+        offset=offset,
+        base_url="/games/recent_releases"
+    )
 
 
-@app.get("/games/by_discount")
+@app.get("/games/by_discount",
+         response_model_exclude_none=False,
+         response_model_exclude_unset=False,
+         summary="Товары по размеру скидки (РАНДОМ)")
 async def games_by_discount(
-    min_percentage: float = 75,
-    max_percentage: float = 100,
-    offset: int = 0,
-    limit: int = 10,
-):
-    product_ids = get_products_by_discount(min_percentage, max_percentage)
-    count = len(product_ids)
-    random.shuffle(product_ids)
-    paginated_ids = product_ids[offset : offset + limit]
+        min_percentage: float = 75,
+        max_percentage: float = 100,
+        limit: int = 10,
+        data_adapter: DataAdapter = Depends()
+) -> ProductRandomListResponse[ProductResponse]:
+    count, games = get_products_by_discount(min_percentage, max_percentage, limit)
 
-    games = []
-    for product_id in paginated_ids:
-        game_data = get_game_by_id(product_id)
-        if game_data:
-            game_data["price"] = get_game_price(product_id)
-            games.append(game_data)
-
-    next_offset = offset + limit if offset + limit < count else None
-    prev_offset = offset - limit if offset > 0 else None
-
-    return {
-        "count": count,
-        "next": f"/games/by_discount/?limit={limit}&offset={next_offset}"
-        if next_offset is not None
-        else None,
-        "previous": f"/games/by_discount/?limit={limit}&offset={prev_offset}"
-        if prev_offset is not None
-        else None,
-        "results": games,
-    }
+    return await data_adapter.enrich_response_without_offset(
+        count=count,
+        response=games
+    )
 
 
 if __name__ == "__main__":
