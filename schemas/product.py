@@ -29,9 +29,9 @@ class ProductResponse(BaseModel):
     pass_product_id: Optional[str] = None
     release_date: Optional[str] = None
     capabilities: Optional[str] = None
-    categories: Optional[str] = None
-    videos: Optional[str] = None
-    screenshots: Optional[str] = None
+    categories: Optional[list] = None
+    videos: Optional[list] = None
+    screenshots: Optional[list] = None
     size: Optional[int] = None
     voice_acting: Optional[str] = None
     interface_ru: Optional[str] = None
@@ -57,9 +57,9 @@ class ProductResponse(BaseModel):
             pass_product_id=game.get("pass_product_id", ""),
             release_date=game.get("release_date", ""),
             capabilities=game.get("capabilities", ""),
-            categories=game.get("category", ""),
-            videos=game.get("link_video"),
-            screenshots=game.get("link_screenshot", ""),
+            categories=game.get("category").split(',') if isinstance(game.get("category", []), str) else [],
+            videos=game.get("link_video").split(',') if isinstance(game.get("link_video", []), str) else [],
+            screenshots=game.get("link_screenshot").split(',') if isinstance(game.get("link_screenshot", []), str) else [],
             size=game.get("game_weight", 0),
             voice_acting="russian" if game.get("audio_ru", 0) else "",
             interface_ru="russian" if game.get("interface_ru", 0) else "",
