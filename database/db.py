@@ -111,6 +111,34 @@ def get_game_by_id(product_id: str) -> dict[str, Any]:
     return game_data
 
 
+def search_games_by_title(partial_title: str) -> tuple[int, list[ProductResponse]]:
+    cur.execute("SELECT product_id FROM products WHERE game_name LIKE ?", (f"%{partial_title}%",))
+    product_ids = [row[0] for row in cur.fetchall()]
+
+    games = []
+    for product_id in product_ids:
+        game_data = get_game_by_id(product_id)
+        if game_data:
+            game_data["prices"] = get_game_price(product_id)
+            games.append(ProductResponse.from_db(game_data))
+
+    return len(games), games
+
+
+# def get_game_by_title(title: str) -> list[ProductResponse]:
+#     cur.execute("SELECT product_id FROM products WHERE game_name = ?", (title,))
+#     product_id = cur.fetchone()[0]
+#
+#     games = []
+#     game_data = get_game_by_id(product_id)
+#     if game_data:
+#         game_data["prices"] = get_game_price(product_id)
+#         games.append(ProductResponse.from_db(game_data))
+#
+#     return games
+
+
+
 def get_game_with_prices_by_id(product_id: str) -> ProductResponse:
     game = get_game_by_id(product_id=product_id)
     prices = get_game_price(product_id=product_id)

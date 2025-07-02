@@ -1,3 +1,5 @@
+
+
 from fastapi import FastAPI, HTTPException, Depends
 from starlette.middleware.cors import CORSMiddleware
 
@@ -12,7 +14,7 @@ from database.db import (
     get_product_ids_with_audio_ru,
     get_product_ids_with_pc,
     get_games_by_recent_releases,
-    get_products_by_discount,
+    get_products_by_discount, search_games_by_title,
 )
 from schemas.product import ProductResponse
 
@@ -40,7 +42,7 @@ app.add_middleware(
 @app.get(
     "/game_id/{product_id}",
     response_model=ProductResponse,
-    summary="Отдает продукт в едином экземпляре",
+    summary="Товар по его product_id",
 )
 async def game_by_product_id(product_id: str) -> ProductResponse:
     game = get_game_with_prices_by_id(product_id=product_id)
@@ -48,6 +50,39 @@ async def game_by_product_id(product_id: str) -> ProductResponse:
         raise HTTPException(status_code=404, detail="Игра не найдена")
 
     return game
+
+
+@app.get("/games/search/{partial_title}",
+         response_model_exclude_none=False,
+         response_model_exclude_unset=False,
+         summary="Поиск по совпадению названия")
+async def games_by_search_title(
+        title: str,
+        data_adapter: DataAdapter = Depends()
+) -> ProductRandomListResponse[ProductResponse]:
+    count, games = search_games_by_title(title)
+
+    return await data_adapter.enrich_response_without_offset(
+        count=count,
+        response=games
+    )
+
+
+# @app.get("/games/search/",
+#          response_model_exclude_none=False,
+#          response_model_exclude_unset=False,
+#          summary="Поиск по точному совпадению")
+# async def games_by_search_title(
+#         title: str = Query,
+#         data_adapter: DataAdapter = Depends()
+# ) -> ProductRandomListResponse[ProductResponse]:
+#     games = get_game_by_title(title)
+#     count = 1
+#
+#     return await data_adapter.enrich_response_without_offset(
+#         count=count,
+#         response=games
+#     )
 
 
 @app.get("/game_price/{product_id}",
