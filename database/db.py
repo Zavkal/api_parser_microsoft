@@ -5,8 +5,8 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from config import price_tables, price_groups
-from operations.calculate import calculate_price
-from schemas.product import ProductResponse
+from api_v1.service.calculate import calculate_price
+from api_v1.schemas.product import ProductResponse
 
 base_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -16,7 +16,7 @@ conn = sqlite3.connect(db_path)
 cur = conn.cursor()
 
 
-def get_random_products(product_ids, limit):
+def get_random_products(product_ids, limit) -> tuple[int, list[ProductResponse]]:
     count = len(product_ids)
     # Перемешиваем список случайным образом
     random.shuffle(product_ids)
@@ -163,7 +163,13 @@ def get_games_with_limit(offset: int, limit: int) -> tuple[int, list[ProductResp
 
 
 def get_sale_games_with_limit(offset: int, limit: int) -> tuple[int, list[ProductResponse]]:
-    cur.execute("SELECT product_id FROM products WHERE sale_product == 1 LIMIT ? OFFSET ?;", (limit, offset))
+    cur.execute("""
+                SELECT product_id
+                FROM products
+                WHERE sale_product = 1
+                  AND (dlc IS NULL OR dlc = '') LIMIT ?
+                OFFSET ?;
+                """, (limit, offset))
     product_ids = [row[0] for row in cur.fetchall()]
 
     games = []
@@ -342,6 +348,33 @@ def get_game_price(product_id: str) -> dict[str, Any]:
         }
 
     return result
+
+
+def get_sale_dlc_with_limit(offset: int, limit: int) -> tuple[int, list[ProductResponse]]:
+    query = """
+        SELECT product_id
+        FROM products
+        WHERE sale_product = 1 AND dlc IS NOT NULL AND dlc <> ''
+        LIMIT ? OFFSET ?;
+    """
+    cur.execute(query, (limit, offset))
+    product_ids = [row[0] for row in cur.fetchall()]
+
+    games = []
+    for product_id in product_ids:
+        game_data = get_game_by_id(product_id)
+        if game_data:
+            game_data["prices"] = get_game_price(product_id)
+            games.append(ProductResponse.from_db(game_data))
+
+    count_query = """
+        SELECT COUNT(*)
+        FROM products
+        WHERE sale_product = 1 AND dlc IS NOT NULL AND dlc <> '';
+    """
+    count = cur.execute(count_query).fetchone()[0]
+
+    return count, games
 
 
 def get_product_ids_with_dlc(limit: int) -> tuple[int, list[ProductResponse]]:

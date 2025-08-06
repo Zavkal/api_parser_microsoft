@@ -9,6 +9,7 @@ class PriceInfo(BaseModel):
 
 
 class PricesSchema(BaseModel):
+    full_price: Optional[float] = 0
     key: PriceInfo
     u_acc: PriceInfo
     new_acc: PriceInfo
@@ -61,12 +62,13 @@ class ProductResponse(BaseModel):
             videos=game.get("link_video").split(',') if isinstance(game.get("link_video", []), str) else [],
             screenshots=game.get("link_screenshot").split(',') if isinstance(game.get("link_screenshot", []), str) else [],
             size=game.get("game_weight", 0),
-            voice_acting="russian" if game.get("audio_ru", 0) else "",
-            interface_ru="russian" if game.get("interface_ru", 0) else "",
-            subtitles="russian" if game.get("subtitles_ru", 0) else "",
+            voice_acting="Русская" if game.get("audio_ru", 0) else "Английская",
+            interface_ru="Русский" if game.get("interface_ru", 0) else "Английский",
+            subtitles="Русские" if game.get("subtitles_ru", 0) else "Английские",
             sale_product=game.get("sale_product", 0),
             dlc=game.get("dlc", ""),
             prices=PricesSchema(
+                full_price=game.get("full_price", 0),
                 key=PriceInfo(
                     country=game["prices"]["key"].get("country", ""),
                     price=game["prices"]["key"]["price"],
