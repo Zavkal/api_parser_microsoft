@@ -1,0 +1,14 @@
+services:
+  sales-api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: sales-api
+    ports:
+      - "8085:8000"
+    volumes:
+      - ../:/app
+    working_dir: /app
+    env_file:
+      - ../.env
+    command: ["uv", "run", "python", "main.py"]

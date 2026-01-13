@@ -1,40 +1,55 @@
+from datetime import date
+
 import requests
 
 from database.db import update_exchange
-from dotenv import load_dotenv
-import os
-
-
-load_dotenv()
-API_EXCHANGE = os.getenv('API_EXCHANGE')
 
 
 def get_new_exchange() -> None:
-    url = "https://api.apilayer.com/exchangerates_data/latest?symbols=USD,TRY,NGN,ARS,UAH,EGP&base=RUB"
+    rates_cb = get_ru_centr_bank()
+    date_exchange = date.today().strftime("%d-%m-%Y")
+    usd_to_rub = get_rate_cb(rates=rates_cb, code='USD')
+    try_to_rub = get_rate_cb(rates=rates_cb, code='TRY')  # Турция
+    ngn_to_rub = get_rate_cb(rates=rates_cb, code='NGN')  # Наира Нигерия
+    ars_to_rub = get_ars()  # Песо Аргентины
+    uah_to_rub = get_rate_cb(rates=rates_cb, code='UAH')  # Гривна Укр
+    egp_to_rub = get_rate_cb(rates=rates_cb, code='EGP')  # Фунт Египет
 
-    payload = {}
-    headers = {"apikey": API_EXCHANGE}
-    response = requests.request("GET", url, headers=headers, data=payload)
+    update_exchange(
+        date_exchange=date_exchange,
+        usd_to_rub=usd_to_rub,
+        try_to_rub=try_to_rub,
+        ngn_to_rub=ngn_to_rub,
+        ars_to_rub=ars_to_rub,
+        uah_to_rub=uah_to_rub,
+        egp_to_rub=egp_to_rub,
+    )
+
+
+def get_rate_cb(rates: dict, code: str) -> float:
+    val = rates.get(code)
+    if not val:
+        return -1
+    return val["Value"] / val["Nominal"]
+
+
+def get_ru_centr_bank():
+    url = "https://www.cbr-xml-daily.ru/daily_json.js"
+
+    response = requests.get(url=url)
     response.raise_for_status()
     if response.status_code == 200:
         data = response.json()
-        date_exchange = data["date"]
-        usd_to_rub = 1 / data["rates"].get("USD", -1)  # Доллар
-        try_to_rub = 1 / data["rates"].get("TRY", -1)  # Турция
-        ngn_to_rub = 1 / data["rates"].get("NGN", -1)  # Наира Нигерия
-        ars_to_rub = 1 / data["rates"].get("ARS", -1)  # Песо Аргентины
-        uah_to_rub = 1 / data["rates"].get("UAH", -1)  # Гривна Укр
-        egp_to_rub = 1 / data["rates"].get("EGP", -1)  # Фунт Египет
+        return data["Valute"]
 
-        update_exchange(
-            date_exchange=date_exchange,
-            usd_to_rub=usd_to_rub,
-            try_to_rub=try_to_rub,
-            ngn_to_rub=ngn_to_rub,
-            ars_to_rub=ars_to_rub,
-            uah_to_rub=uah_to_rub,
-            egp_to_rub=egp_to_rub,
-        )
+
+def get_ars():
+    url = "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/ars.json"
+    response = requests.get(url)
+    if response.status_code == 200:
+        data = response.json()
+        return data["ars"]["rub"]
+
 
 
 if __name__ == "__main__":
